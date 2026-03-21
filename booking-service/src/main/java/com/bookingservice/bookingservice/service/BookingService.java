@@ -82,6 +82,20 @@ public class BookingService {
         return toResponse(booking);
     }
 
+    @Transactional
+    public BookingResponse confirmBooking(Long bookingId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new NotFoundException("Booking not found: " + bookingId));
+
+        if (booking.getStatus() == BookingStatus.CONFIRMED) {
+            return toResponse(booking);
+        }
+
+        booking.setStatus(BookingStatus.CONFIRMED);
+        bookingRepository.save(booking);
+        return toResponse(booking);
+    }
+
     @Transactional(readOnly = true)
     public boolean isRoomAvailable(Long roomId, LocalDate checkIn, LocalDate checkOut) {
         validateDates(checkIn, checkOut);

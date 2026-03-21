@@ -45,4 +45,9 @@ public class BookingController {
     public BookingResponse cancelBooking(@PathVariable("id") Long id) {
         return bookingService.cancelBooking(id);
     }
+
+    @PutMapping("/bookings/confirm/{id}")
+    public BookingResponse confirmBooking(@PathVariable("id") Long id) {
+        return bookingService.confirmBooking(id);
+    }
 }
