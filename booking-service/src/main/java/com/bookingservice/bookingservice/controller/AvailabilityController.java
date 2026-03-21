@@ -29,10 +29,10 @@ public class AvailabilityController {
     }
 
     @org.springframework.web.bind.annotation.PostMapping("/availability/bulk")
-    public java.util.List<Long> getAvailableRoomIds(
+    public java.util.Map<Long, Long> getAvailableRoomCounts(
             @org.springframework.web.bind.annotation.RequestBody java.util.List<Long> roomIds,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut) {
-        return bookingService.getAvailableRoomIds(roomIds, checkIn, checkOut);
+        return bookingService.getBookedCountsForRooms(roomIds, checkIn, checkOut);
     }
 }

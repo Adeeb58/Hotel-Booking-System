@@ -43,11 +43,15 @@ public class PaymentService {
             logger.info("Skipping booking confirmation for non-numeric bookingId {}", payment.getBookingId());
         }
 
-        // Send notification
-        notificationService.sendNotification(
+        // Send notification (non-blocking for payment success response)
+        try {
+            notificationService.sendNotification(
                 payment.getBookingId(),
                 "Payment successful for booking: " + payment.getBookingId()
-        );
+            );
+        } catch (Exception ex) {
+            logger.warn("Notification dispatch failed for bookingId {}: {}", payment.getBookingId(), ex.getMessage());
+        }
 
         return savedPayment;
     }

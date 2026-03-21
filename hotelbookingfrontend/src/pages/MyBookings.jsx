@@ -12,15 +12,25 @@ const MyBookings = () => {
   const [message, setMessage] = useState(null);
 
   const fetchBookings = async () => {
-    if (!userId) {
+    if (!user) {
       setLoading(false);
       return;
     }
     try {
-      const res = await api.get(`/bookings/user/${userId}`);
-      setBookings(res.data);
+      const res = await api.get('/bookings/my');
+      setBookings(res.data || []);
     } catch (err) {
-      console.error('Failed to fetch bookings', err);
+      if (userId) {
+        try {
+          const fallbackRes = await api.get(`/bookings/user/${userId}`);
+          setBookings(fallbackRes.data || []);
+          return;
+        } catch (fallbackErr) {
+          console.error('Failed to fetch bookings', fallbackErr);
+        }
+      } else {
+        console.error('Failed to fetch bookings', err);
+      }
     } finally {
       setLoading(false);
     }
@@ -66,6 +76,7 @@ const MyBookings = () => {
   }
 
   const confirmedBookings = bookings.filter(b => b.status === 'CONFIRMED');
+  const pendingBookings = bookings.filter(b => b.status === 'PENDING_PAYMENT');
   const cancelledBookings = bookings.filter(b => b.status === 'CANCELLED');
 
   return (
@@ -75,16 +86,16 @@ const MyBookings = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 tracking-tight">My Reservations</h1>
           <p className="text-gray-500 text-sm mt-0.5">
-            {confirmedBookings.length} active · {cancelledBookings.length} cancelled
+            {confirmedBookings.length} active · {pendingBookings.length} pending · {cancelledBookings.length} cancelled
           </p>
         </div>
       </div>
 
       {message && (
         <div className={`p-4 rounded text-sm flex items-start gap-2 ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-          {message.type === 'error' && <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />}
+          {message.type === 'error' && <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />}
           {message.text}
-          <button onClick={() => setMessage(null)} className="ml-auto flex-shrink-0">
+          <button onClick={() => setMessage(null)} className="ml-auto shrink-0">
             <X className="h-4 w-4 opacity-60 hover:opacity-100" />
           </button>
         </div>
@@ -102,7 +113,7 @@ const MyBookings = () => {
                 className={`bg-white p-6 rounded-xl shadow-sm border flex flex-col md:flex-row md:items-start justify-between gap-4 transition ${isCancelled ? 'opacity-60' : 'hover:shadow-md'}`}
               >
                 {/* Left: booking details */}
-                <div className="flex-grow">
+                <div className="grow">
                   <div className="flex items-center gap-2 mb-1">
                     <Hash className="h-4 w-4 text-gray-400" />
                     <span className="text-xs font-mono text-gray-500 tracking-widest">
@@ -128,13 +139,15 @@ const MyBookings = () => {
                 </div>
 
                 {/* Right: status, price, actions */}
-                <div className="flex flex-col items-start md:items-end gap-3 md:min-w-[160px]">
+                <div className="flex flex-col items-start md:items-end gap-3 md:min-w-40">
                   <span className={`px-3 py-1 text-xs font-bold uppercase tracking-wide rounded-full ${
                     isCancelled
                       ? 'bg-gray-100 text-gray-500 border border-gray-200'
-                      : 'bg-green-50 text-green-700 border border-green-200'
+                      : booking.status === 'PENDING_PAYMENT'
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        : 'bg-green-50 text-green-700 border border-green-200'
                   }`}>
-                    {booking.status || 'PENDING'}
+                    {booking.status === 'PENDING_PAYMENT' ? 'Pending Payment' : booking.status || 'PENDING'}
                   </span>
 
                   <div className="text-2xl font-bold text-gray-900 flex items-center">
@@ -143,7 +156,23 @@ const MyBookings = () => {
                   </div>
 
                   <div className="flex flex-col gap-2 w-full md:items-end">
-                    {!isCancelled && (
+                    {booking.status === 'PENDING_PAYMENT' && (
+                      <Link
+                        to="/payment"
+                        state={{
+                          bookingId: booking.id,
+                          amount: booking.totalPrice,
+                          reservationNumber: booking.reservationNumber,
+                          hotelName: `Hotel ${booking.hotelId}`,
+                          checkIn: booking.checkInDate,
+                          checkOut: booking.checkOutDate,
+                        }}
+                        className="w-full md:w-auto text-center px-4 py-1.5 bg-amber-500 text-white text-sm font-semibold rounded hover:bg-amber-600 transition"
+                      >
+                        Pay Now
+                      </Link>
+                    )}
+                    {booking.status === 'CONFIRMED' && (
                       <Link
                         to={`/hotels/${booking.hotelId}`}
                         className="w-full md:w-auto text-center px-4 py-1.5 bg-primary text-white text-sm font-semibold rounded hover:bg-gray-800 transition"

@@ -1,5 +1,6 @@
 package org.hotelbooking.apigateway.security;
 
+import io.github.resilience4j.core.ConfigurationNotFoundException;
 import io.github.resilience4j.ratelimiter.RateLimiter;
 import io.github.resilience4j.ratelimiter.RateLimiterRegistry;
 import jakarta.servlet.FilterChain;
@@ -25,9 +26,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         // IP address or global rate limit
         String clientIp = request.getRemoteAddr();
-        
-        // Use a single "gateway" configuration for all IPs
-        RateLimiter rateLimiter = rateLimiterRegistry.rateLimiter(clientIp, "gateway");
+
+        RateLimiter rateLimiter;
+        try {
+            // Use named config when present.
+            rateLimiter = rateLimiterRegistry.rateLimiter(clientIp, "gateway");
+        } catch (ConfigurationNotFoundException ex) {
+            // Fall back to default config instead of failing request processing.
+            rateLimiter = rateLimiterRegistry.rateLimiter(clientIp);
+        }
 
         if (!rateLimiter.acquirePermission()) {
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());

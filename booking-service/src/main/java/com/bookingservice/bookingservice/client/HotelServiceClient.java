@@ -11,6 +11,9 @@ public interface HotelServiceClient {
     @GetMapping("/hotels/{id}")
     HotelSummary getHotelById(@PathVariable("id") Long id);
 
+    @GetMapping("/rooms/room/{roomId}")
+    com.bookingservice.bookingservice.client.dto.RoomSummary getRoom(@PathVariable("roomId") Long roomId);
+
     @org.springframework.web.bind.annotation.PutMapping("/rooms/{roomId}/decrement")
     void decrementRoomInventory(@PathVariable("roomId") Long roomId);
 

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -28,8 +29,21 @@ public class BookingController {
 
     @PostMapping("/bookings")
     @ResponseStatus(HttpStatus.CREATED)
-    public BookingResponse createBooking(@Valid @RequestBody CreateBookingRequest request) {
-        return bookingService.createBooking(request);
+    public BookingResponse createBooking(
+            @Valid @RequestBody CreateBookingRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) String authenticatedUserId) {
+        CreateBookingRequest effectiveRequest = request;
+        if (authenticatedUserId != null && !authenticatedUserId.isBlank() && !authenticatedUserId.equals(request.userId())) {
+            effectiveRequest = new CreateBookingRequest(
+                    authenticatedUserId,
+                    request.hotelId(),
+                    request.roomId(),
+                    request.checkInDate(),
+                    request.checkOutDate(),
+                    request.totalPrice()
+            );
+        }
+        return bookingService.createBooking(effectiveRequest);
     }
 
     @GetMapping("/bookings/{id}")
@@ -40,6 +54,15 @@ public class BookingController {
     @GetMapping("/bookings/user/{userId}")
     public List<BookingResponse> getBookingsForUser(@PathVariable("userId") String userId) {
         return bookingService.getBookingsForUser(userId);
+    }
+
+    @GetMapping("/bookings/my")
+    public List<BookingResponse> getMyBookings(
+            @RequestHeader(value = "X-User-Id", required = false) String authenticatedUserId) {
+        if (authenticatedUserId == null || authenticatedUserId.isBlank()) {
+            throw new IllegalArgumentException("Authenticated user id is required");
+        }
+        return bookingService.getBookingsForUser(authenticatedUserId);
     }
 
     @PutMapping("/bookings/cancel/{id}")

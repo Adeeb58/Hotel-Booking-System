@@ -28,6 +28,7 @@ const HotelDetails = () => {
   const [checkIn, setCheckIn] = useState(daysFromNow(1));
   const [checkOut, setCheckOut] = useState(daysFromNow(4));
   const [selectedRoom, setSelectedRoom] = useState(null);
+  const [roomAvailability, setRoomAvailability] = useState({});
 
   useEffect(() => {
     const fetchHotelData = async () => {
@@ -45,6 +46,30 @@ const HotelDetails = () => {
     };
     fetchHotelData();
   }, [id]);
+
+  useEffect(() => {
+    const fetchAvailability = async () => {
+      if (rooms.length > 0 && checkIn && checkOut && checkOut > checkIn) {
+        try {
+          const roomIds = rooms
+            .map(r => Number(r?.id))
+            .filter(id => Number.isFinite(id));
+
+          if (roomIds.length === 0) {
+            setRoomAvailability({});
+            return;
+          }
+
+          const res = await api.post(`/availability/bulk?checkIn=${checkIn}&checkOut=${checkOut}`, roomIds);
+          setRoomAvailability(res.data);
+        } catch (err) {
+          setRoomAvailability({});
+          console.warn('Real-time availability is temporarily unavailable. Showing default room stock.');
+        }
+      }
+    };
+    fetchAvailability();
+  }, [rooms, checkIn, checkOut]);
 
   const handleBook = async (roomId) => {
     if (!user) {
@@ -85,15 +110,19 @@ const HotelDetails = () => {
         totalPrice: totalPrice
       });
 
-      const resNumber = response.data?.reservationNumber || '';
-      setMessage({
-        type: 'success',
-        text: `✅ Booking confirmed! ${resNumber ? `Reservation #${resNumber}` : ''} — ${nights} night(s), Total: $${totalPrice.toFixed(2)}. A confirmation has been dispatched!`
-      });
+      const booking = response.data;
+      const resNumber = booking?.reservationNumber || '';
 
-      // Refresh rooms to show updated availability
-      const roomRes = await api.get(`/rooms/${id}`);
-      setRooms(roomRes.data);
+      navigate('/payment', {
+        state: {
+          bookingId: booking.id,
+          amount: totalPrice,
+          reservationNumber: resNumber,
+          hotelName: hotel?.name || `Hotel ${id}`,
+          checkIn,
+          checkOut,
+        },
+      });
     } catch (err) {
       if (err.response?.status === 409) {
         setMessage({ type: 'error', text: 'This room is already booked for the selected dates. Please choose different dates.' });
@@ -192,15 +221,27 @@ const HotelDetails = () => {
         <h2 className="text-2xl font-bold text-gray-900 mb-4 tracking-tight">Available Rooms</h2>
         {rooms.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {rooms.map(room => (
-              <div key={room.id} className="border rounded-lg p-5 bg-white shadow-sm flex flex-col">
-                <div className="flex items-center mb-3">
-                  <BedDouble className="h-5 w-5 mr-2 text-gray-400" />
-                  <h3 className="text-lg font-medium text-gray-900">Room {room.id}</h3>
+            {rooms.map(room => {
+              const bookedCount = roomAvailability[room.id] || 0;
+              const availableRooms = (room.totalRooms || 0) - bookedCount;
+              const isSoldOut = availableRooms <= 0;
+
+              return (
+              <div key={room.id} className={`border rounded-lg p-5 bg-white shadow-sm flex flex-col ${isSoldOut ? 'opacity-60 bg-gray-50' : ''}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center">
+                    <BedDouble className="h-5 w-5 mr-2 text-gray-400" />
+                    <h3 className="text-lg font-medium text-gray-900">Room {room.id}</h3>
+                  </div>
+                  {checkIn && checkOut && (
+                    <span className={`text-xs font-bold px-2 py-1 rounded ${isSoldOut ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-700'}`}>
+                      {isSoldOut ? 'Sold Out' : `${availableRooms} room(s) left`}
+                    </span>
+                  )}
                 </div>
                 <div className="text-gray-500 text-sm mb-4">
                   Type: <span className="text-gray-800 font-medium">{room.roomType}</span><br />
-                  Capacity: <span className="text-gray-800 font-medium">{room.capacity}</span>
+                  Capacity: <span className="text-gray-800 font-medium">{room.capacity} Guests</span>
                 </div>
 
                 <div className="mt-auto flex justify-between items-end">
@@ -214,17 +255,17 @@ const HotelDetails = () => {
                     )}
                   </div>
                   <button
-                    disabled={(room.totalRooms !== null && room.totalRooms <= 0) || (bookingLoading && selectedRoom === room.id)}
+                    disabled={isSoldOut || (bookingLoading && selectedRoom === room.id)}
                     onClick={() => handleBook(room.id)}
                     className="bg-primary text-white px-5 py-2 rounded text-sm font-medium hover:bg-gray-800 transition disabled:opacity-50"
                   >
-                    {(room.totalRooms !== null && room.totalRooms <= 0)
+                    {isSoldOut
                       ? 'Sold Out'
                       : (bookingLoading && selectedRoom === room.id) ? 'Booking...' : 'Book Now'}
                   </button>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         ) : (
           <div className="text-center py-8 bg-white border border-dashed rounded text-gray-500">

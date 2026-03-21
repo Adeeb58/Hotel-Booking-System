@@ -13,7 +13,7 @@ import java.util.List;
 public interface BookingClient {
 
     @PostMapping("/availability/bulk")
-    List<Long> getAvailableRoomIds(
+    java.util.Map<Long, Long> getAvailableRoomCounts(
             @RequestBody List<Long> roomIds,
             @RequestParam("checkIn") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
             @RequestParam("checkOut") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut

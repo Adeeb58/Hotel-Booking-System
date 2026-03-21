@@ -17,14 +17,14 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     Optional<Booking> findByReservationNumber(String reservationNumber);
 
     @Query("""
-        select count(b) > 0
+        select count(b)
         from Booking b
         where b.roomId = :roomId
           and b.status = :status
           and :checkIn < b.checkOutDate
           and :checkOut > b.checkInDate
     """)
-    boolean existsOverlappingBooking(
+    long countOverlappingBookings(
             @Param("roomId") Long roomId,
             @Param("status") BookingStatus status,
             @Param("checkIn") LocalDate checkIn,
@@ -32,14 +32,15 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     );
 
     @Query("""
-        select distinct b.roomId
+        select b.roomId, count(b)
         from Booking b
         where b.roomId in :roomIds
           and b.status = :status
           and :checkIn < b.checkOutDate
           and :checkOut > b.checkInDate
+        group by b.roomId
     """)
-    List<Long> findBookedRoomIds(
+    List<Object[]> countBookedRoomsForIds(
             @Param("roomIds") List<Long> roomIds,
             @Param("status") BookingStatus status,
             @Param("checkIn") LocalDate checkIn,

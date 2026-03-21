@@ -21,21 +21,8 @@ public class RoomService {
         return roomRepository.findByHotelId(hotelId);
     }
 
-    public void decrementRoomCapacity(Long roomId) {
-        roomRepository.findById(roomId).ifPresent(room -> {
-            if (room.getTotalRooms() != null && room.getTotalRooms() > 0) {
-                room.setTotalRooms(room.getTotalRooms() - 1);
-                roomRepository.save(room);
-            }
-        });
-    }
-
-    public void incrementRoomCapacity(Long roomId) {
-        roomRepository.findById(roomId).ifPresent(room -> {
-            if (room.getTotalRooms() != null) {
-                room.setTotalRooms(room.getTotalRooms() + 1);
-                roomRepository.save(room);
-            }
-        });
+    public org.hotelbooking.hotelservice.model.Room getRoomById(Long roomId) {
+        return roomRepository.findById(roomId)
+                .orElseThrow(() -> new RuntimeException("Room not found: " + roomId));
     }
 }

@@ -2,6 +2,7 @@ package org.hotelbooking.userservice.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.hotelbooking.userservice.dto.AuthResponse;
+import org.hotelbooking.userservice.dto.GoogleAuthRequest;
 import org.hotelbooking.userservice.dto.LoginRequest;
 import org.hotelbooking.userservice.dto.RegisterRequest;
 import org.hotelbooking.userservice.service.AuthService;
@@ -27,6 +28,12 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
         String token = service.login(request);
+        return ResponseEntity.ok(new AuthResponse(token));
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<AuthResponse> googleLogin(@RequestBody GoogleAuthRequest request) {
+        String token = service.loginWithGoogle(request.getCredential());
         return ResponseEntity.ok(new AuthResponse(token));
     }
 }

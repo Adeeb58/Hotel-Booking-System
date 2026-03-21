@@ -21,25 +21,33 @@ public class BookingService {
     private final BookingRepository bookingRepository;
     private final com.bookingservice.bookingservice.client.NotificationClient notificationClient;
     private final com.bookingservice.bookingservice.client.HotelServiceClient hotelServiceClient;
+    private final com.bookingservice.bookingservice.client.PaymentServiceClient paymentServiceClient;
 
-    public BookingService(BookingRepository bookingRepository, com.bookingservice.bookingservice.client.NotificationClient notificationClient, com.bookingservice.bookingservice.client.HotelServiceClient hotelServiceClient) {
+    public BookingService(BookingRepository bookingRepository,
+                          com.bookingservice.bookingservice.client.NotificationClient notificationClient,
+                          com.bookingservice.bookingservice.client.HotelServiceClient hotelServiceClient,
+                          com.bookingservice.bookingservice.client.PaymentServiceClient paymentServiceClient) {
         this.bookingRepository = bookingRepository;
         this.notificationClient = notificationClient;
         this.hotelServiceClient = hotelServiceClient;
+        this.paymentServiceClient = paymentServiceClient;
     }
 
     @Transactional
     public BookingResponse createBooking(CreateBookingRequest request) {
         validateDates(request.checkInDate(), request.checkOutDate());
 
-        boolean overlaps = bookingRepository.existsOverlappingBooking(
+        long bookedCount = bookingRepository.countOverlappingBookings(
                 request.roomId(),
                 BookingStatus.CONFIRMED,
                 request.checkInDate(),
                 request.checkOutDate()
         );
+        com.bookingservice.bookingservice.client.dto.RoomSummary room = hotelServiceClient.getRoom(request.roomId());
 
-        if (overlaps) {
+        int totalRooms = (room != null && room.totalRooms() != null) ? room.totalRooms() : 0;
+
+        if (room == null || bookedCount >= totalRooms) {
             throw new ConflictException("Room is not available for the selected dates");
         }
 
@@ -50,26 +58,22 @@ public class BookingService {
         booking.setCheckInDate(request.checkInDate());
         booking.setCheckOutDate(request.checkOutDate());
         booking.setTotalPrice(request.totalPrice());
-        booking.setStatus(BookingStatus.CONFIRMED);
+        // Booking starts as PENDING_PAYMENT — payment-service will confirm it after successful payment
+        booking.setStatus(BookingStatus.PENDING_PAYMENT);
         booking.setReservationNumber(generateReservationNumber());
 
         Booking saved = bookingRepository.save(booking);
 
-        try {
-            hotelServiceClient.decrementRoomInventory(request.roomId());
-        } catch (Exception e) {
-            System.err.println("Failed to decrement room inventory sync: " + e.getMessage());
-        }
+        // We no longer physically decrement static inventory
+        // try {
+        //     hotelServiceClient.decrementRoomInventory(request.roomId());
+        // } catch (Exception e) {
+        //     System.err.println("Failed to decrement room inventory sync: " + e.getMessage());
+        // }
 
-        try {
-            notificationClient.sendNotification(
-                String.valueOf(saved.getUserId()), 
-                String.format("Booking Confirmed! Reservation Number: %s | Check-In: %s | Check-Out: %s | Total Price: $%.2f",
-                    saved.getReservationNumber(), saved.getCheckInDate(), saved.getCheckOutDate(), saved.getTotalPrice())
-            );
-        } catch (Exception e) {
-            System.err.println("Failed to send notification: " + e.getMessage());
-        }
+        // NOTE: Notification is intentionally NOT sent here.
+        // The payment-service calls /bookings/confirm/{id} after payment succeeds,
+        // which triggers confirmBooking() below and sends the notification.
 
         return toResponse(saved);
     }
@@ -101,11 +105,12 @@ public class BookingService {
         booking.setStatus(BookingStatus.CANCELLED);
         bookingRepository.save(booking);
         
-        try {
-            hotelServiceClient.incrementRoomInventory(booking.getRoomId());
-        } catch (Exception e) {
-            System.err.println("Failed to increment room inventory sync: " + e.getMessage());
-        }
+        // We no longer physically increment static inventory
+        // try {
+        //     hotelServiceClient.incrementRoomInventory(booking.getRoomId());
+        // } catch (Exception e) {
+        //     System.err.println("Failed to increment room inventory sync: " + e.getMessage());
+        // }
         
         return toResponse(booking);
     }
@@ -137,16 +142,52 @@ public class BookingService {
     @Transactional(readOnly = true)
     public boolean isRoomAvailable(Long roomId, LocalDate checkIn, LocalDate checkOut) {
         validateDates(checkIn, checkOut);
-        return !bookingRepository.existsOverlappingBooking(roomId, BookingStatus.CONFIRMED, checkIn, checkOut);
+        long bookedCount = bookingRepository.countOverlappingBookings(roomId, BookingStatus.CONFIRMED, checkIn, checkOut);
+        try {
+            com.bookingservice.bookingservice.client.dto.RoomSummary room = hotelServiceClient.getRoom(roomId);
+            int totalRooms = (room != null && room.totalRooms() != null) ? room.totalRooms() : 0;
+            return room != null && bookedCount < totalRooms;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @Transactional(readOnly = true)
-    public List<Long> getAvailableRoomIds(List<Long> roomIds, LocalDate checkIn, LocalDate checkOut) {
+    public java.util.Map<Long, Long> getBookedCountsForRooms(List<Long> roomIds, LocalDate checkIn, LocalDate checkOut) {
         validateDates(checkIn, checkOut);
-        List<Long> bookedRoomIds = bookingRepository.findBookedRoomIds(roomIds, BookingStatus.CONFIRMED, checkIn, checkOut);
-        return roomIds.stream()
-                .filter(id -> !bookedRoomIds.contains(id))
+        java.util.Map<Long, Long> counts = new java.util.HashMap<>();
+        if (roomIds == null || roomIds.isEmpty()) return counts;
+
+        List<Long> validRoomIds = roomIds.stream()
+                .filter(java.util.Objects::nonNull)
+                .distinct()
                 .toList();
+
+        if (validRoomIds.isEmpty()) {
+            return counts;
+        }
+
+        for (Long id : validRoomIds) {
+            counts.put(id, 0L);
+        }
+
+        List<Object[]> results = bookingRepository.countBookedRoomsForIds(validRoomIds, BookingStatus.CONFIRMED, checkIn, checkOut);
+        for (Object[] result : results) {
+            if (result == null || result.length < 2 || result[0] == null || result[1] == null) {
+                continue;
+            }
+
+            Long roomId = (result[0] instanceof Number number)
+                    ? number.longValue()
+                    : null;
+
+            if (roomId == null || !counts.containsKey(roomId)) {
+                continue;
+            }
+
+            counts.put(roomId, ((Number) result[1]).longValue());
+        }
+        return counts;
     }
 
     private void validateDates(LocalDate checkIn, LocalDate checkOut) {

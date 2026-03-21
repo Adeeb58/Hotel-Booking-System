@@ -35,9 +35,11 @@ public class AuthFilter extends OncePerRequestFilter {
 
         // ── PUBLIC ROUTES (no JWT required) ─────────────────────────────────────────
         // /auth/**  → login, register
-        // GET /hotels/** and GET /rooms/** → public hotel browsing
+        // GET /hotels/**, GET /rooms/** and GET /promotions/** → public browsing/offers
+        // /availability/** → public real-time availability checks
         if (path.startsWith("/auth") ||
-            (method.equalsIgnoreCase("GET") && (path.startsWith("/hotels") || path.startsWith("/rooms")))) {
+            path.startsWith("/availability") ||
+            (method.equalsIgnoreCase("GET") && (path.startsWith("/hotels") || path.startsWith("/rooms") || path.startsWith("/promotions")))) {
             filterChain.doFilter(request, response);
             return;
         }

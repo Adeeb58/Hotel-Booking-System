@@ -7,6 +7,7 @@ import Register from './pages/Register';
 import HotelDetails from './pages/HotelDetails';
 import AdminDashboard from './pages/AdminDashboard';
 import MyBookings from './pages/MyBookings';
+import Payment from './pages/Payment';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
             <Route path="/hotels/:id" element={<HotelDetails />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/bookings" element={<MyBookings />} />
+            <Route path="/payment" element={<Payment />} />
           </Routes>
         </main>
         <footer className="bg-white border-t py-6 text-center text-sm text-gray-500">
