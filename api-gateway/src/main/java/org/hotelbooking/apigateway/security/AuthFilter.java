@@ -47,6 +47,41 @@ public class AuthFilter extends OncePerRequestFilter {
             return;
         }
 
-        filterChain.doFilter(request, response);
+        String username = jwtUtil.extractUsername(token);
+        String role = jwtUtil.extractRole(token);
+
+        jakarta.servlet.http.HttpServletRequestWrapper requestWrapper = new jakarta.servlet.http.HttpServletRequestWrapper(request) {
+            @Override
+            public String getHeader(String name) {
+                if ("X-User-Id".equalsIgnoreCase(name)) {
+                    return username;
+                }
+                if ("X-User-Role".equalsIgnoreCase(name)) {
+                    return role;
+                }
+                return super.getHeader(name);
+            }
+
+            @Override
+            public java.util.Enumeration<String> getHeaderNames() {
+                java.util.List<String> names = java.util.Collections.list(super.getHeaderNames());
+                names.add("X-User-Id");
+                names.add("X-User-Role");
+                return java.util.Collections.enumeration(names);
+            }
+
+            @Override
+            public java.util.Enumeration<String> getHeaders(String name) {
+                if ("X-User-Id".equalsIgnoreCase(name)) {
+                    return java.util.Collections.enumeration(java.util.Collections.singletonList(username));
+                }
+                if ("X-User-Role".equalsIgnoreCase(name)) {
+                    return java.util.Collections.enumeration(java.util.Collections.singletonList(role));
+                }
+                return super.getHeaders(name);
+            }
+        };
+
+        filterChain.doFilter(requestWrapper, response);
     }
 }

@@ -18,4 +18,18 @@ public class JwtUtil {
             throw new RuntimeException("Invalid or expired token");
         }
     }
+
+    public String extractUsername(String token) {
+        return Jwts.parser().setSigningKey(SECRET)
+                .parseClaimsJws(token)
+                .getBody()
+                .getSubject();
+    }
+
+    public String extractRole(String token) {
+        return Jwts.parser().setSigningKey(SECRET)
+                .parseClaimsJws(token)
+                .getBody()
+                .get("role", String.class);
+    }
 }

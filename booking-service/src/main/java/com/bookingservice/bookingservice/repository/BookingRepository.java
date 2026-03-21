@@ -30,4 +30,19 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             @Param("checkIn") LocalDate checkIn,
             @Param("checkOut") LocalDate checkOut
     );
+
+    @Query("""
+        select distinct b.roomId
+        from Booking b
+        where b.roomId in :roomIds
+          and b.status = :status
+          and :checkIn < b.checkOutDate
+          and :checkOut > b.checkInDate
+    """)
+    List<Long> findBookedRoomIds(
+            @Param("roomIds") List<Long> roomIds,
+            @Param("status") BookingStatus status,
+            @Param("checkIn") LocalDate checkIn,
+            @Param("checkOut") LocalDate checkOut
+    );
 }

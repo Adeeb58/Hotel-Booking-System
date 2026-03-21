@@ -16,7 +16,12 @@ public class RoomController {
     private final RoomService roomService;
 
     @PostMapping
-    public Room addRoom(@RequestBody Room room) {
+    public Room addRoom(
+            @RequestHeader(value = "X-User-Role", required = false) String role,
+            @RequestBody Room room) {
+        if (!"ADMIN".equals(role)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "Access Denied: Admins Only");
+        }
         return roomService.addRoom(room);
     }
 

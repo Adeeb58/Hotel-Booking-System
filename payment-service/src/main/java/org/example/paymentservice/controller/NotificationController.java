@@ -28,4 +28,12 @@ public class NotificationController {
 
         return ResponseEntity.ok(notificationService.getNotificationsByUserId(userId));
     }
+
+    @org.springframework.web.bind.annotation.PostMapping
+    public ResponseEntity<String> createNotification(
+            @RequestParam("userId") String userId,
+            @RequestParam("message") String message) {
+        notificationService.sendNotification(userId, message);
+        return ResponseEntity.ok("Notification sent");
+    }
 }

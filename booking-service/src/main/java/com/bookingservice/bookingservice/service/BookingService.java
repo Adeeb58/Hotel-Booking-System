@@ -19,9 +19,11 @@ import java.util.UUID;
 public class BookingService {
 
     private final BookingRepository bookingRepository;
+    private final com.bookingservice.bookingservice.client.NotificationClient notificationClient;
 
-    public BookingService(BookingRepository bookingRepository) {
+    public BookingService(BookingRepository bookingRepository, com.bookingservice.bookingservice.client.NotificationClient notificationClient) {
         this.bookingRepository = bookingRepository;
+        this.notificationClient = notificationClient;
     }
 
     @Transactional
@@ -50,6 +52,16 @@ public class BookingService {
         booking.setReservationNumber(generateReservationNumber());
 
         Booking saved = bookingRepository.save(booking);
+
+        try {
+            notificationClient.sendNotification(
+                String.valueOf(saved.getUserId()), 
+                "Booking Confirmed! Reservation Number: " + saved.getReservationNumber()
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to send notification: " + e.getMessage());
+        }
+
         return toResponse(saved);
     }
 
@@ -93,6 +105,16 @@ public class BookingService {
 
         booking.setStatus(BookingStatus.CONFIRMED);
         bookingRepository.save(booking);
+
+        try {
+            notificationClient.sendNotification(
+                String.valueOf(booking.getUserId()), 
+                "Booking Confirmed! Reservation Number: " + booking.getReservationNumber()
+            );
+        } catch (Exception e) {
+            System.err.println("Failed to send notification: " + e.getMessage());
+        }
+
         return toResponse(booking);
     }
 
@@ -100,6 +122,15 @@ public class BookingService {
     public boolean isRoomAvailable(Long roomId, LocalDate checkIn, LocalDate checkOut) {
         validateDates(checkIn, checkOut);
         return !bookingRepository.existsOverlappingBooking(roomId, BookingStatus.CONFIRMED, checkIn, checkOut);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Long> getAvailableRoomIds(List<Long> roomIds, LocalDate checkIn, LocalDate checkOut) {
+        validateDates(checkIn, checkOut);
+        List<Long> bookedRoomIds = bookingRepository.findBookedRoomIds(roomIds, BookingStatus.CONFIRMED, checkIn, checkOut);
+        return roomIds.stream()
+                .filter(id -> !bookedRoomIds.contains(id))
+                .toList();
     }
 
     private void validateDates(LocalDate checkIn, LocalDate checkOut) {

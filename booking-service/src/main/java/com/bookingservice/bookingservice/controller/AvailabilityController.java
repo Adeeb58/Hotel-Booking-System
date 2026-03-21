@@ -27,4 +27,12 @@ public class AvailabilityController {
         boolean available = bookingService.isRoomAvailable(roomId, checkIn, checkOut);
         return new AvailabilityResponse(roomId, checkIn, checkOut, available);
     }
+
+    @org.springframework.web.bind.annotation.PostMapping("/availability/bulk")
+    public java.util.List<Long> getAvailableRoomIds(
+            @org.springframework.web.bind.annotation.RequestBody java.util.List<Long> roomIds,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkIn,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate checkOut) {
+        return bookingService.getAvailableRoomIds(roomIds, checkIn, checkOut);
+    }
 }
