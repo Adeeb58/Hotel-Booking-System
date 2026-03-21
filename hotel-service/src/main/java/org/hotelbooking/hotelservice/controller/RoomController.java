@@ -29,4 +29,14 @@ public class RoomController {
     public List<Room> getRooms(@PathVariable Long hotelId) {
         return roomService.getRoomsByHotel(hotelId);
     }
+
+    @PutMapping("/{roomId}/decrement")
+    public void decrementRoomInventory(@PathVariable Long roomId) {
+        roomService.decrementRoomCapacity(roomId);
+    }
+
+    @PutMapping("/{roomId}/increment")
+    public void incrementRoomInventory(@PathVariable Long roomId) {
+        roomService.incrementRoomCapacity(roomId);
+    }
 }

@@ -20,10 +20,12 @@ public class BookingService {
 
     private final BookingRepository bookingRepository;
     private final com.bookingservice.bookingservice.client.NotificationClient notificationClient;
+    private final com.bookingservice.bookingservice.client.HotelServiceClient hotelServiceClient;
 
-    public BookingService(BookingRepository bookingRepository, com.bookingservice.bookingservice.client.NotificationClient notificationClient) {
+    public BookingService(BookingRepository bookingRepository, com.bookingservice.bookingservice.client.NotificationClient notificationClient, com.bookingservice.bookingservice.client.HotelServiceClient hotelServiceClient) {
         this.bookingRepository = bookingRepository;
         this.notificationClient = notificationClient;
+        this.hotelServiceClient = hotelServiceClient;
     }
 
     @Transactional
@@ -54,9 +56,16 @@ public class BookingService {
         Booking saved = bookingRepository.save(booking);
 
         try {
+            hotelServiceClient.decrementRoomInventory(request.roomId());
+        } catch (Exception e) {
+            System.err.println("Failed to decrement room inventory sync: " + e.getMessage());
+        }
+
+        try {
             notificationClient.sendNotification(
                 String.valueOf(saved.getUserId()), 
-                "Booking Confirmed! Reservation Number: " + saved.getReservationNumber()
+                String.format("Booking Confirmed! Reservation Number: %s | Check-In: %s | Check-Out: %s | Total Price: $%.2f",
+                    saved.getReservationNumber(), saved.getCheckInDate(), saved.getCheckOutDate(), saved.getTotalPrice())
             );
         } catch (Exception e) {
             System.err.println("Failed to send notification: " + e.getMessage());
@@ -73,7 +82,7 @@ public class BookingService {
     }
 
     @Transactional(readOnly = true)
-    public List<BookingResponse> getBookingsForUser(Long userId) {
+    public List<BookingResponse> getBookingsForUser(String userId) {
         return bookingRepository.findByUserIdOrderByCheckInDateDesc(userId)
                 .stream()
                 .map(this::toResponse)
@@ -91,6 +100,13 @@ public class BookingService {
 
         booking.setStatus(BookingStatus.CANCELLED);
         bookingRepository.save(booking);
+        
+        try {
+            hotelServiceClient.incrementRoomInventory(booking.getRoomId());
+        } catch (Exception e) {
+            System.err.println("Failed to increment room inventory sync: " + e.getMessage());
+        }
+        
         return toResponse(booking);
     }
 

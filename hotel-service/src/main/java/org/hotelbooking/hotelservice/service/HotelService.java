@@ -65,11 +65,17 @@ public class HotelService {
                 
                 if (rooms.isEmpty()) return false;
                 
-                // Check availability
+                // Check availability via booking-service
                 if (checkIn != null && checkOut != null) {
                     List<Long> roomIds = rooms.stream().map(org.hotelbooking.hotelservice.model.Room::getId).toList();
-                    List<Long> availableIds = bookingClient.getAvailableRoomIds(roomIds, checkIn, checkOut);
-                    return !availableIds.isEmpty();
+                    try {
+                        List<Long> availableIds = bookingClient.getAvailableRoomIds(roomIds, checkIn, checkOut);
+                        return !availableIds.isEmpty();
+                    } catch (Exception e) {
+                        // If booking-service is unavailable, do NOT crash — assume rooms available
+                        System.err.println("[HotelService] BookingClient availability check failed: " + e.getMessage());
+                        return true;
+                    }
                 }
                 return true;
             }).toList();

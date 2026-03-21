@@ -20,4 +20,22 @@ public class RoomService {
     public List<Room> getRoomsByHotel(Long hotelId) {
         return roomRepository.findByHotelId(hotelId);
     }
+
+    public void decrementRoomCapacity(Long roomId) {
+        roomRepository.findById(roomId).ifPresent(room -> {
+            if (room.getTotalRooms() != null && room.getTotalRooms() > 0) {
+                room.setTotalRooms(room.getTotalRooms() - 1);
+                roomRepository.save(room);
+            }
+        });
+    }
+
+    public void incrementRoomCapacity(Long roomId) {
+        roomRepository.findById(roomId).ifPresent(room -> {
+            if (room.getTotalRooms() != null) {
+                room.setTotalRooms(room.getTotalRooms() + 1);
+                roomRepository.save(room);
+            }
+        });
+    }
 }

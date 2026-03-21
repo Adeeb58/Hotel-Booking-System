@@ -35,7 +35,7 @@ public class AuthService {
 
         repo.save(user);
 
-        return jwtUtil.generateToken(user.getEmail(), user.getRole().name());
+        return jwtUtil.generateToken(user.getEmail(), user.getRole().name(), user.getId());
     }
 
     public String login(LoginRequest request) {
@@ -47,6 +47,6 @@ public class AuthService {
             throw new InvalidCredentialsException("Invalid email or password");
         }
 
-        return jwtUtil.generateToken(user.getEmail(), user.getRole().name());
+        return jwtUtil.generateToken(user.getEmail(), user.getRole().name(), user.getId());
     }
 }

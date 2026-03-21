@@ -10,4 +10,10 @@ public interface HotelServiceClient {
 
     @GetMapping("/hotels/{id}")
     HotelSummary getHotelById(@PathVariable("id") Long id);
+
+    @org.springframework.web.bind.annotation.PutMapping("/rooms/{roomId}/decrement")
+    void decrementRoomInventory(@PathVariable("roomId") Long roomId);
+
+    @org.springframework.web.bind.annotation.PutMapping("/rooms/{roomId}/increment")
+    void incrementRoomInventory(@PathVariable("roomId") Long roomId);
 }

@@ -10,6 +10,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -22,18 +25,28 @@ public class AuthFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String path = request.getRequestURI();
+        String method = request.getMethod();
 
-        // Allow public endpoints
-        if (path.contains("/auth")) {
+        // Always allow preflight OPTIONS requests - CorsFilter handles the CORS headers
+        if (method.equalsIgnoreCase("OPTIONS")) {
             filterChain.doFilter(request, response);
             return;
         }
 
+        // ── PUBLIC ROUTES (no JWT required) ─────────────────────────────────────────
+        // /auth/**  → login, register
+        // GET /hotels/** and GET /rooms/** → public hotel browsing
+        if (path.startsWith("/auth") ||
+            (method.equalsIgnoreCase("GET") && (path.startsWith("/hotels") || path.startsWith("/rooms")))) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // ── PROTECTED ROUTES (JWT required) ──────────────────────────────────────────
         String authHeader = request.getHeader("Authorization");
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            response.getWriter().write("Missing Authorization Header");
+            sendError(response, HttpStatus.UNAUTHORIZED.value(), "Missing or malformed Authorization header");
             return;
         }
 
@@ -42,46 +55,49 @@ public class AuthFilter extends OncePerRequestFilter {
         try {
             jwtUtil.validateToken(token);
         } catch (Exception e) {
-            response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            response.getWriter().write("Invalid Token");
+            sendError(response, HttpStatus.UNAUTHORIZED.value(), "Invalid or expired token");
             return;
         }
 
-        String username = jwtUtil.extractUsername(token);
+        // Extract claims and propagate them as downstream headers
         String role = jwtUtil.extractRole(token);
+        String userId = jwtUtil.extractUserId(token);
 
-        jakarta.servlet.http.HttpServletRequestWrapper requestWrapper = new jakarta.servlet.http.HttpServletRequestWrapper(request) {
+        // Wrap request to inject X-User-Id and X-User-Role headers for downstream services
+        HttpServletRequest wrappedRequest = new jakarta.servlet.http.HttpServletRequestWrapper(request) {
+
             @Override
             public String getHeader(String name) {
-                if ("X-User-Id".equalsIgnoreCase(name)) {
-                    return username;
-                }
-                if ("X-User-Role".equalsIgnoreCase(name)) {
-                    return role;
-                }
+                if ("X-User-Id".equalsIgnoreCase(name)) return userId;
+                if ("X-User-Role".equalsIgnoreCase(name)) return role;
                 return super.getHeader(name);
             }
 
             @Override
-            public java.util.Enumeration<String> getHeaderNames() {
-                java.util.List<String> names = java.util.Collections.list(super.getHeaderNames());
+            public Enumeration<String> getHeaderNames() {
+                List<String> names = Collections.list(super.getHeaderNames());
                 names.add("X-User-Id");
                 names.add("X-User-Role");
-                return java.util.Collections.enumeration(names);
+                return Collections.enumeration(names);
             }
 
             @Override
-            public java.util.Enumeration<String> getHeaders(String name) {
-                if ("X-User-Id".equalsIgnoreCase(name)) {
-                    return java.util.Collections.enumeration(java.util.Collections.singletonList(username));
-                }
-                if ("X-User-Role".equalsIgnoreCase(name)) {
-                    return java.util.Collections.enumeration(java.util.Collections.singletonList(role));
-                }
+            public Enumeration<String> getHeaders(String name) {
+                if ("X-User-Id".equalsIgnoreCase(name))
+                    return Collections.enumeration(Collections.singletonList(userId));
+                if ("X-User-Role".equalsIgnoreCase(name))
+                    return Collections.enumeration(Collections.singletonList(role));
                 return super.getHeaders(name);
             }
         };
 
-        filterChain.doFilter(requestWrapper, response);
+        filterChain.doFilter(wrappedRequest, response);
+    }
+
+    private void sendError(HttpServletResponse response, int status, String message) throws IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write("{\"error\": \"" + message + "\"}");
     }
 }

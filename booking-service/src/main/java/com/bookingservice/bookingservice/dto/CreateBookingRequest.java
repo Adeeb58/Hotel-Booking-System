@@ -6,7 +6,7 @@ import jakarta.validation.constraints.Positive;
 import java.time.LocalDate;
 
 public record CreateBookingRequest(
-        @NotNull Long userId,
+        @NotNull String userId,
         @NotNull Long hotelId,
         @NotNull Long roomId,
         @NotNull LocalDate checkInDate,

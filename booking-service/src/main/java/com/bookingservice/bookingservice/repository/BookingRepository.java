@@ -12,7 +12,7 @@ import java.util.Optional;
 
 public interface BookingRepository extends JpaRepository<Booking, Long> {
 
-    List<Booking> findByUserIdOrderByCheckInDateDesc(Long userId);
+    List<Booking> findByUserIdOrderByCheckInDateDesc(String userId);
 
     Optional<Booking> findByReservationNumber(String reservationNumber);
 

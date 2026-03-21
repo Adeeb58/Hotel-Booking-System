@@ -22,7 +22,11 @@ public class NotificationService {
 
         notificationRepository.save(notification);
 
-        System.out.println("Notification Sent: " + message);
+        System.out.println("================================");
+        System.out.println("[EMAIL DISPATCHED] To User ID: " + userId);
+        System.out.println("[SUBJECT] Hotel Booking Confirmation");
+        System.out.println("[BODY] " + message);
+        System.out.println("================================\n");
     }
 
     public List<Notification> getAllNotifications() {

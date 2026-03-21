@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -26,7 +27,7 @@ public class BookingController {
     }
 
     @PostMapping("/bookings")
-    @org.springframework.web.bind.annotation.ResponseStatus(HttpStatus.CREATED)
+    @ResponseStatus(HttpStatus.CREATED)
     public BookingResponse createBooking(@Valid @RequestBody CreateBookingRequest request) {
         return bookingService.createBooking(request);
     }
@@ -37,7 +38,7 @@ public class BookingController {
     }
 
     @GetMapping("/bookings/user/{userId}")
-    public List<BookingResponse> getBookingsForUser(@PathVariable("userId") Long userId) {
+    public List<BookingResponse> getBookingsForUser(@PathVariable("userId") String userId) {
         return bookingService.getBookingsForUser(userId);
     }
 
