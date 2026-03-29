@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #111827;
+  --color-secondary: #374151;
+}
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+    background-image: radial-gradient(circle at top left, rgba(15, 23, 42, 0.06), transparent 45%);
+    min-height: 100vh;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    @apply transition;
+  }
+}
