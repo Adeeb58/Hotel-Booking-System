@@ -1,0 +1,10 @@
+.idea
+.vscode
+.vscode
+
+# Local environment files
+**/.env
+
+# Runtime logs
+**/*.log
+**/boot_log.txt
